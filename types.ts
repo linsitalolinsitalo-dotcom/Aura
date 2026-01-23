@@ -1,4 +1,10 @@
 
+export interface NotificationSettings {
+  enabled: boolean;
+  intervalMinutes: number; // 60, 120, 180, etc.
+  lastNotified?: number; // timestamp
+}
+
 export interface UserProfile {
   name: string;
   weight: number;
@@ -9,6 +15,7 @@ export interface UserProfile {
   trainingDayBonus: boolean;
   unit: 'ml' | 'l';
   isOnboarded: boolean;
+  notifications?: NotificationSettings;
 }
 
 export interface FoodItem {
