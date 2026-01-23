@@ -2,44 +2,47 @@
 import React, { useState, useEffect } from 'react';
 import { WaterRing } from '../components/WaterRing';
 import { storage } from '../services/storageService';
-import { UserProfile, DayLog, WaterLog, Meal } from '../types';
+import { UserProfile, DayLog, Meal } from '../types';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-export const Home: React.FC = () => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+export const Home: React.FC<{ profile: UserProfile }> = ({ profile }) => {
+  const { currentUser } = useAuth();
   const [dayLog, setDayLog] = useState<DayLog | null>(null);
   const [showAddWater, setShowAddWater] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    setProfile(storage.getUser());
-    setDayLog(storage.getDayLog(today));
-  }, [today]);
+    if (currentUser) {
+      setDayLog(storage.getDayLog(currentUser.id, today));
+    }
+  }, [today, currentUser]);
 
   const addWater = (amount: number) => {
-    if (!dayLog) return;
-    const newLog: WaterLog = {
+    if (!dayLog || !currentUser) return;
+    const newLog = {
       id: Date.now().toString(),
       amount,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     const updated = { ...dayLog, waterLogs: [...dayLog.waterLogs, newLog] };
     setDayLog(updated);
-    storage.saveDayLog(updated);
+    storage.saveDayLog(currentUser.id, updated);
     setShowAddWater(false);
   };
 
   const undoWater = () => {
-    if (!dayLog || dayLog.waterLogs.length === 0) return;
+    if (!dayLog || !currentUser || dayLog.waterLogs.length === 0) return;
     const updatedLogs = [...dayLog.waterLogs];
     updatedLogs.pop();
     const updated = { ...dayLog, waterLogs: updatedLogs };
     setDayLog(updated);
-    storage.saveDayLog(updated);
+    storage.saveDayLog(currentUser.id, updated);
   };
 
   const currentWater = dayLog?.waterLogs.reduce((acc, l) => acc + l.amount, 0) || 0;
+  
   const foodTotals = dayLog?.meals.reduce((acc, m) => ({
     cal: acc.cal + m.totals.calories,
     pro: acc.pro + m.totals.protein_g,
@@ -47,7 +50,7 @@ export const Home: React.FC = () => {
     fat: acc.fat + m.totals.fat_g,
   }), { cal: 0, pro: 0, car: 0, fat: 0 }) || { cal: 0, pro: 0, car: 0, fat: 0 };
 
-  if (!profile || !dayLog) return null;
+  if (!dayLog) return null;
 
   return (
     <div className="py-6 space-y-6">

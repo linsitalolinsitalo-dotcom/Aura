@@ -1,18 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { storage } from '../services/storageService';
 import { notificationService } from '../services/notificationService';
 import { UserProfile } from '../types';
+import { useAuth } from '../context/AuthContext';
 
-export const Settings: React.FC = () => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-
-  useEffect(() => {
-    setProfile(storage.getUser());
-  }, []);
+export const Settings: React.FC<{ profile: UserProfile; onUpdate: (p: UserProfile) => void }> = ({ profile, onUpdate }) => {
+  const { currentUser, logout } = useAuth();
 
   const toggleNotifications = async (enabled: boolean) => {
-    if (!profile) return;
+    if (!profile || !currentUser) return;
 
     let canNotify = enabled;
     if (enabled) {
@@ -28,12 +25,12 @@ export const Settings: React.FC = () => {
       }
     };
 
-    setProfile(updatedProfile);
-    storage.saveUser(updatedProfile);
+    onUpdate(updatedProfile);
+    storage.saveUser(currentUser.id, updatedProfile);
   };
 
   const updateInterval = (mins: number) => {
-    if (!profile) return;
+    if (!profile || !currentUser) return;
     const updatedProfile: UserProfile = {
       ...profile,
       notifications: {
@@ -41,28 +38,22 @@ export const Settings: React.FC = () => {
         intervalMinutes: mins
       }
     };
-    setProfile(updatedProfile);
-    storage.saveUser(updatedProfile);
+    onUpdate(updatedProfile);
+    storage.saveUser(currentUser.id, updatedProfile);
   };
-
-  const testNotification = () => {
-    notificationService.send("Aura Health ✨", "Isto é um teste! Beba água e registre suas refeições.");
-  };
-
-  if (!profile) return null;
 
   return (
     <div className="py-6 space-y-8">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-slate-400">Personalize seus lembretes e conta.</p>
+        <p className="text-slate-400">Personalize seu Aura Health.</p>
       </header>
 
       <section className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-zinc-800/50 space-y-8">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <h3 className="text-lg font-bold">Lembretes Inteligentes</h3>
-            <p className="text-sm text-slate-400">Notificações push periódicas.</p>
+            <h3 className="text-lg font-bold">Lembretes</h3>
+            <p className="text-sm text-slate-400">Notificações push.</p>
           </div>
           <button
             onClick={() => toggleNotifications(!profile.notifications?.enabled)}
@@ -73,46 +64,43 @@ export const Settings: React.FC = () => {
         </div>
 
         {profile.notifications?.enabled && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="space-y-4">
-              <label className="text-sm font-bold text-slate-400 uppercase tracking-widest">Intervalo de tempo</label>
-              <div className="grid grid-cols-3 gap-3">
-                {[60, 120, 180].map(mins => (
-                  <button
-                    key={mins}
-                    onClick={() => updateInterval(mins)}
-                    className={`py-3 rounded-2xl font-bold text-sm transition-all border ${
-                      profile.notifications?.intervalMinutes === mins 
-                        ? 'bg-blue-500 text-white border-transparent shadow-lg shadow-blue-500/20' 
-                        : 'border-slate-100 dark:border-zinc-800 text-slate-500'
-                    }`}
-                  >
-                    {mins / 60}h
-                  </button>
-                ))}
-              </div>
+          <div className="space-y-4">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Intervalo</label>
+            <div className="grid grid-cols-3 gap-3">
+              {[60, 120, 180].map(mins => (
+                <button
+                  key={mins}
+                  onClick={() => updateInterval(mins)}
+                  className={`py-3 rounded-2xl font-bold text-sm border ${
+                    profile.notifications?.intervalMinutes === mins 
+                      ? 'bg-blue-500 text-white border-transparent' 
+                      : 'border-slate-100 dark:border-zinc-800 text-slate-500'
+                  }`}
+                >
+                  {mins / 60}h
+                </button>
+              ))}
             </div>
-
-            <button
-              onClick={testNotification}
-              className="w-full py-4 text-blue-500 font-bold text-sm bg-blue-50 dark:bg-blue-900/20 rounded-2xl"
-            >
-              Testar Notificação Agora
-            </button>
           </div>
         )}
-      </section>
 
-      <section className="p-8 bg-slate-50 dark:bg-zinc-900/50 rounded-[2rem] border border-dashed border-slate-200 dark:border-zinc-800">
-        <h4 className="font-bold text-slate-700 dark:text-zinc-300 mb-2">Como funcionam as notificações?</h4>
-        <p className="text-sm text-slate-500 leading-relaxed">
-          Para receber lembretes enquanto o app estiver fechado, certifique-se de ter instalado o App como PWA (Adicionar à Tela de Início) e permitido notificações nas configurações do seu dispositivo.
-        </p>
+        <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-bold">{currentUser?.name}</p>
+              <p className="text-xs text-slate-400">{currentUser?.identifier}</p>
+            </div>
+            <button
+              onClick={logout}
+              className="px-6 py-2 bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 rounded-full text-xs font-bold"
+            >
+              Sair da Conta
+            </button>
+          </div>
+        </div>
       </section>
       
-      <div className="pt-4 flex justify-center">
-        <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase">Aura Health v1.2 • Feito com IA</p>
-      </div>
+      <p className="text-[10px] text-center text-slate-400 font-medium tracking-widest uppercase">Aura Health • V2.0 Auth</p>
     </div>
   );
 };

@@ -21,7 +21,8 @@ export const Onboarding: React.FC<{ onComplete: (u: UserProfile) => void }> = ({
   
   const finish = () => {
     const finalProfile = { ...profile, isOnboarded: true } as UserProfile;
-    storage.saveUser(finalProfile);
+    // Removed redundant and incorrect storage.saveUser call (missing userId).
+    // The App.tsx component's onComplete callback handles saving the profile with the correct userId.
     onComplete(finalProfile);
   };
 

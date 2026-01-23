@@ -7,24 +7,37 @@ import { FoodEntry } from './pages/FoodEntry';
 import { DailyDetails } from './pages/DailyDetails';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
 import { Layout } from './components/Layout';
 import { storage } from './services/storageService';
 import { UserProfile } from './types';
 import { notificationService } from './services/notificationService';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { currentUser, isLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = storage.getUser();
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    // 1. Try migration on first load if this is a new user
+    const migrated = storage.migrateLegacyData(currentUser.id);
+    
+    // 2. Load profile
+    const saved = migrated || storage.getUser(currentUser.id);
     setProfile(saved);
     setLoading(false);
-  }, []);
+  }, [currentUser]);
 
-  // Global effect to check for notifications
+  // Notification logic
   useEffect(() => {
-    if (!profile || !profile.notifications?.enabled) return;
+    if (!profile || !profile.notifications?.enabled || !currentUser) return;
 
     const intervalId = setInterval(() => {
       const now = Date.now();
@@ -37,42 +50,65 @@ const App: React.FC = () => {
           "Já bebeu água ou registrou sua última refeição? Mantenha o foco!"
         );
         
-        // Update last notified time
         const updatedProfile: UserProfile = {
           ...profile,
-          notifications: {
-            ...profile.notifications!,
-            lastNotified: now
-          }
+          notifications: { ...profile.notifications!, lastNotified: now }
         };
         setProfile(updatedProfile);
-        storage.saveUser(updatedProfile);
+        storage.saveUser(currentUser.id, updatedProfile);
       }
-    }, 60000); // Check every minute
+    }, 60000);
 
     return () => clearInterval(intervalId);
-  }, [profile]);
+  }, [profile, currentUser]);
 
-  if (loading) return null;
+  if (isLoading || loading) return (
+    <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-zinc-950">
+      <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
+  // Auth Protection
+  if (!currentUser) {
+    return (
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="*" element={<Navigate to="/login" />} />
+        </Routes>
+      </Router>
+    );
+  }
+
+  // Onboarding Protection
   if (!profile || !profile.isOnboarded) {
-    return <Onboarding onComplete={setProfile} />;
+    return <Onboarding onComplete={(p) => {
+      storage.saveUser(currentUser.id, p);
+      setProfile(p);
+    }} />;
   }
 
   return (
     <Router>
       <Layout>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Home profile={profile} />} />
           <Route path="/add-meal" element={<FoodEntry />} />
           <Route path="/history" element={<DailyDetails />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/reports" element={<Reports profile={profile} />} />
+          <Route path="/settings" element={<Settings profile={profile} onUpdate={(p) => setProfile(p)} />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Layout>
     </Router>
   );
 };
+
+const App: React.FC = () => (
+  <AuthProvider>
+    <AppContent />
+  </AuthProvider>
+);
 
 export default App;

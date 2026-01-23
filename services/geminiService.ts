@@ -3,6 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AIResponse } from "../types";
 
 export const analyzeMeal = async (description: string): Promise<AIResponse> => {
+  // Initialize the Gemini API client using the environment variable.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
@@ -19,8 +20,9 @@ export const analyzeMeal = async (description: string): Promise<AIResponse> => {
   `;
 
   try {
+    // Using gemini-3-pro-preview for tasks requiring complex nutritional reasoning and estimation.
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -68,6 +70,7 @@ export const analyzeMeal = async (description: string): Promise<AIResponse> => {
       }
     });
 
+    // Accessing the .text property of GenerateContentResponse directly.
     const resultText = response.text || "{}";
     return JSON.parse(resultText) as AIResponse;
   } catch (error) {
